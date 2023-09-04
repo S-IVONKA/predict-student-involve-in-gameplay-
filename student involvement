@@ -1,0 +1,323 @@
+dtypes={
+    'elapsed_time':np.int32,
+    'event_name':'category',
+    'name':'category',
+    'level':np.uint8,
+    'room_coor_x':np.float32,
+    'room_coor_y':np.float32,
+    'screen_coor_x':np.float32,
+    'screen_coor_y':np.float32,
+    'hover_duration':np.float32,
+    'text':'category',
+    'fqid':'category',
+    'room_fqid':'category',
+    'text_fqid':'category',
+    'fullscreen':'category',
+    'hq':'category',
+    'music':'category',
+    'level_group':'category'}
+
+train_data = pd.read_csv('/kaggle/input/predict-student-performance-from-gam
+# This Python 3 environment comes with many helpful analytics libraries installed
+# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python
+# For example, here's several helpful packages to load
+
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+
+# Input data files are available in the read-only "../input/" directory
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
+
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using "Save & Run All" 
+# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session
+/kaggle/input/predict-student-performance-from-game-play/sample_submission.csv
+/kaggle/input/predict-student-performance-from-game-play/train_labels.csv
+/kaggle/input/predict-student-performance-from-game-play/train.csv
+/kaggle/input/predict-student-performance-from-game-play/test.csv
+/kaggle/input/predict-student-performance-from-game-play/jo_wilder_310/competition.cpython-310-x86_64-linux-gnu.so
+/kaggle/input/predict-student-performance-from-game-play/jo_wilder_310/__init__.py
+/kaggle/input/predict-student-performance-from-game-play/jo_wilder/competition.cpython-37m-x86_64-linux-gnu.so
+/kaggle/input/predict-student-performance-from-game-play/jo_wilder/__init__.py
+Reference
+https://www.kaggle.com/code/gusthema/student-performance-w-tensorflow-decision-forests I have understood Gusthema's code and did some changes and implemented in my way. The notebook was extremely useful in understanding the data in the form of sessions and levels. The way he feature engineered the columns was great.
+
+labels = pd.read_csv('/kaggle/input/predict-student-performance-from-game-play/train_labels.csv')
+dtypes={
+    'elapsed_time':np.int32,
+    'event_name':'category',
+    'name':'category',
+    'level':np.uint8,
+    'room_coor_x':np.float32,
+    'room_coor_y':np.float32,
+    'screen_coor_x':np.float32,
+    'screen_coor_y':np.float32,
+    'hover_duration':np.float32,
+    'text':'category',
+    'fqid':'category',
+    'room_fqid':'category',
+    'text_fqid':'category',
+    'fullscreen':'category',
+    'hq':'category',
+    'music':'category',
+    'level_group':'category'}
+
+train_data = pd.read_csv('/kaggle/input/predict-student-performance-from-game-play/train.csv',dtype=dtypes)
+train_data.head()
+session_id	index	elapsed_time	event_name	name	level	page	room_coor_x	room_coor_y	screen_coor_x	screen_coor_y	hover_duration	text	fqid	room_fqid	text_fqid	fullscreen	hq	music	level_group
+0	20090312431273200	0	0	cutscene_click	basic	0	NaN	-413.991394	-159.314682	380.0	494.0	NaN	undefined	intro	tunic.historicalsociety.closet	tunic.historicalsociety.closet.intro	0	0	1	0-4
+1	20090312431273200	1	1323	person_click	basic	0	NaN	-413.991394	-159.314682	380.0	494.0	NaN	Whatcha doing over there, Jo?	gramps	tunic.historicalsociety.closet	tunic.historicalsociety.closet.gramps.intro_0_...	0	0	1	0-4
+2	20090312431273200	2	831	person_click	basic	0	NaN	-413.991394	-159.314682	380.0	494.0	NaN	Just talking to Teddy.	gramps	tunic.historicalsociety.closet	tunic.historicalsociety.closet.gramps.intro_0_...	0	0	1	0-4
+3	20090312431273200	3	1147	person_click	basic	0	NaN	-413.991394	-159.314682	380.0	494.0	NaN	I gotta run to my meeting!	gramps	tunic.historicalsociety.closet	tunic.historicalsociety.closet.gramps.intro_0_...	0	0	1	0-4
+4	20090312431273200	4	1863	person_click	basic	0	NaN	-412.991394	-159.314682	381.0	494.0	NaN	Can I come, Gramps?	gramps	tunic.historicalsociety.closet	tunic.historicalsociety.closet.gramps.intro_0_...	0	0	1	0-4
+labels['session'] = labels.session_id.apply(lambda x: int(x.split('_')[0]))
+labels['q'] = labels.session_id.apply(lambda x: int(x.split('_')[-1][1:]))
+labels.head()
+session_id	correct	session	q
+0	20090312431273200_q1	1	20090312431273200	1
+1	20090312433251036_q1	0	20090312433251036	1
+2	20090312455206810_q1	1	20090312455206810	1
+3	20090313091715820_q1	0	20090313091715820	1
+4	20090313571836404_q1	1	20090313571836404	1
+import matplotlib.pyplot as plt
+plt.figure(figsize = (3,3))
+plot_df = labels.correct.value_counts()
+plot_df.plot(kind = 'pie',autopct='%1.1f%%')
+plt.show()
+
+plt.figure(figsize=(10, 20))
+plt.subplots_adjust(hspace=0.5, wspace=0.5)
+plt.suptitle("\"Correct\" column values for each question", fontsize=14, y=0.94)
+for n in range(1,19):
+    #print(n, str(n))
+    ax = plt.subplot(6, 3, n)
+
+    # filter df and plot ticker on the new subplot axis
+    plot_df = labels.loc[labels.q == n]
+    plot_df = plot_df.correct.value_counts()
+    plot_df.plot(ax=ax, kind="bar", color=['b', 'r'])
+    
+    # chart formatting
+    ax.set_title("Question " + str(n))
+    ax.set_xlabel("")
+
+Categoric and Numeric Segrigation
+CATEGORICAL = ['event_name', 'name','fqid', 'room_fqid', 'text_fqid']
+NUMERICAL = ['elapsed_time','level','page','room_coor_x', 'room_coor_y', 
+        'screen_coor_x', 'screen_coor_y', 'hover_duration']
+Categorical unique count
+
+for i in CATEGORICAL:
+    print(i,":{}".format(train_data[i].nunique()))
+event_name :11
+name :6
+fqid :128
+room_fqid :19
+text_fqid :126
+# Reference: https://www.kaggle.com/code/cdeotte/random-forest-baseline-0-664/notebook
+
+def feature_engineer(dataset_df):
+    dfs = []
+    for c in CATEGORICAL:
+        tmp = dataset_df.groupby(['session_id','level_group'])[c].agg('nunique')
+        tmp.name = tmp.name + '_nunique'
+        dfs.append(tmp)
+    for c in NUMERICAL:
+        tmp = dataset_df.groupby(['session_id','level_group'])[c].agg('mean')
+        dfs.append(tmp)
+    for c in NUMERICAL:
+        tmp = dataset_df.groupby(['session_id','level_group'])[c].agg('std')
+        tmp.name = tmp.name + '_std'
+        dfs.append(tmp)
+    dataset_df = pd.concat(dfs,axis=1)
+    dataset_df = dataset_df.fillna(-1)
+    dataset_df = dataset_df.reset_index()
+    dataset_df = dataset_df.set_index('session_id')
+    return dataset_df
+dataset_df = feature_engineer(train_data)
+dataset_df.head()
+level_group	event_name_nunique	name_nunique	fqid_nunique	room_fqid_nunique	text_fqid_nunique	elapsed_time	level	page	room_coor_x	...	screen_coor_y	hover_duration	elapsed_time_std	level_std	page_std	room_coor_x_std	room_coor_y_std	screen_coor_x_std	screen_coor_y_std	hover_duration_std
+student
+dataset_df.shape
+(70686, 22)
+dataset_df.describe()
+
+
+figure, axis = plt.subplots(3, 2, figsize=(10, 10))
+
+for name, data in dataset_df.groupby('level_group'):
+    axis[0, 0].plot(range(1, len(data['room_coor_x_std'])+1), data['room_coor_x_std'], label=name)
+    axis[0, 1].plot(range(1, len(data['room_coor_y_std'])+1), data['room_coor_y_std'], label=name)
+    axis[1, 0].plot(range(1, len(data['screen_coor_x_std'])+1), data['screen_coor_x_std'], label=name)
+    axis[1, 1].plot(range(1, len(data['screen_coor_y_std'])+1), data['screen_coor_y_std'], label=name)
+    axis[2, 0].plot(range(1, len(data['hover_duration'])+1), data['hover_duration_std'], label=name)
+    axis[2, 1].plot(range(1, len(data['elapsed_time_std'])+1), data['elapsed_time_std'], label=name)
+    
+
+axis[0, 0].set_title('room_coor_x')
+axis[0, 1].set_title('room_coor_y')
+axis[1, 0].set_title('screen_coor_x')
+axis[1, 1].set_title('screen_coor_y')
+axis[2, 0].set_title('hover_duration')
+axis[2, 1].set_title('elapsed_time_std')
+
+for i in range(3):
+    axis[i, 0].legend()
+    axis[i, 1].legend()
+
+plt.show()
+
+Split training and validation data
+from sklearn.model_selection import train_test_split
+train, valid = train_test_split(dataset_df, test_size = 0.2)
+print('{} examples in train, {} examples in validation'.format(len(train),len(valid)))
+56548 examples in train, 14138 examples in validation
+Model selection and implementation
+# Fetch the unique list of user sessions in the validation dataset. We assigned 
+# `session_id` as the index of our feature engineered dataset. Hence fetching 
+# the unique values in the index column will give us a list of users in the 
+# validation set.
+VALID_USER_LIST = valid.index.unique()
+
+# Create a dataframe for storing the predictions of each question for all users
+# in the validation set.
+# For this, the required size of the data frame is: 
+# (no: of users in validation set  x no of questions).
+# We will initialize all the predicted values in the data frame to zero.
+# The dataframe's index column is the user `session_id`s. 
+prediction_df = pd.DataFrame(data=np.zeros((len(VALID_USER_LIST),18)), index=VALID_USER_LIST)
+
+# Create an empty dictionary to store the models created for each question.
+models = {}
+
+# Create an empty dictionary to store the evaluation score for each question.
+evaluation_dict ={}
+# Iterate through questions 1 to 18 to train models for each question, evaluate
+# the trained model and store the predicted values.
+from sklearn import ensemble
+for q_no in range(1,19):
+
+    # Select level group for the question based on the q_no.
+    if q_no<=3: grp = '0-4'
+    elif q_no<=13: grp = '5-12'
+    elif q_no<=18: grp = '13-22'
+    
+    # Filter the rows in the datasets based on the selected level group. 
+    train_df = train.loc[train.level_group == grp]
+    train_users = train_df.index.values
+    valid_df = valid.loc[valid.level_group == grp]
+    valid_users = valid_df.index.values
+    
+    # Select the labels for the related q_no.
+    train_labels = labels.loc[labels.q==q_no].set_index('session').loc[train_users]
+    valid_labels = labels.loc[labels.q==q_no].set_index('session').loc[valid_users]
+
+    # Add the label to the filtered datasets.
+#     train_df.loc[:,"correct"] = train_labels["correct"]
+#     valid_df.loc[:,"correct"] = valid_labels["correct"]
+
+    
+    train_ds = train_df.loc[:, train_df.columns != 'level_group']
+    valid_ds = valid_df.loc[:, valid_df.columns != 'level_group']
+    
+#     train_y = train_ds['correct']
+#     train_x = train_ds.drop('correct',axis = 1)
+#     valid_y = valid_ds['correct']
+#     valid_x = valid_ds.drop('correct',axis = 1)
+    # TensorFlow Datasets is a high performance data loading library 
+    # which is helpful when training neural networks with accelerators like GPUs and TPUs.
+    # We are omitting `level_group`, since it is not needed for training anymore.
+    # train_ds = tfdf.keras.pd_dataframe_to_tf_dataset(train_df.loc[:, train_df.columns != 'level_group'], label="correct")
+    # valid_ds = tfdf.keras.pd_dataframe_to_tf_dataset(valid_df.loc[:, valid_df.columns != 'level_group'], label="correct")
+
+    # We will now create the Gradient Boosted Trees Model with default settings. 
+    # By default the model is set to train for a classification task.
+    gbtm = ensemble.GradientBoostingClassifier()
+    
+    # Train the model.
+    gbtm.fit(train_ds,train_labels['correct'])
+
+    # Store the model
+    models[f'{grp}_{q_no}'] = gbtm
+
+    # Evaluate the trained model on the validation dataset and store the 
+    # evaluation accuracy in the `evaluation_dict`.
+    
+    accuracy = gbtm.score(valid_ds, valid_labels['correct'])
+    evaluation_dict[q_no] = accuracy         
+
+    # Use the trained model to make predictions on the validation dataset and 
+    # store the predicted values in the `prediction_df` dataframe.
+    predict = gbtm.predict(valid_ds)
+    prediction_df.loc[valid_users, q_no-1] = predict.flatten()
+Output for Gradient Boosting algorithm
+# for name, value in evaluation_dict.items():
+#   print(f"question {name}: accuracy {value:.4f}")
+prediction_df.head()
+0	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17
+session_id																		
+21110217443392940	1.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+21090009023768480	0.0	0.0	0.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	0.0	1.0	1.0	1.0	1.0	1.0
+22090617232048904	1.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0
+21010112142179304	1.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	1.0	0.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0
+21010210565746210	1.0	1.0	1.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	1.0	1.0	1.0	1.0	1.0
+# features = gbtm.feature_importances_
+# features
+# for i in models:
+#     importance = gbtm.feature_importances_
+#     indices = importance.argsort()[-5:][::-1]
+#     features[indices] += 1
+# features/= 18
+# # print the variable importance
+# sum = features.sum()
+# for i,v in enumerate(features):
+#     print('Feature: %d, Percentage: %f%%' % (i,v/sum*100))
+sample_sub = pd.read_csv('/kaggle/input/predict-student-performance-from-game-play/sample_submission.csv')
+# Create a dataframe of required size:
+# (no: of users in validation set x no: of questions) initialized to zero values
+# to store true values of the label `correct`. 
+true_df = pd.DataFrame(data=np.zeros((len(VALID_USER_LIST),18)), index=VALID_USER_LIST)
+for i in range(18):
+    # Get the true labels.
+    tmp = labels.loc[labels.q == i+1].set_index('session').loc[VALID_USER_LIST]
+    true_df[i] = tmp.correct.values
+
+max_score = 0; best_threshold = 0
+test = pd.read_csv('/kaggle/input/predict-student-performance-from-game-play/test.csv')
+import jo_wilder_310
+env = jo_wilder_310.make_env()
+iter_test = env.iter_test()
+sample_submission = sample_sub
+
+limits = {'0-4':(1,4), '5-12':(4,14), '13-22':(14,19)}
+
+for (test, sample_submission) in iter_test:
+    test_df = feature_engineer(test)
+    grp = test_df.level_group.values[0]
+    a,b = limits[grp]
+    for t in range(a,b):
+        gbtm = models[f'{grp}_{t}']
+        test_ds = test_df.loc[:, test_df.columns != 'level_group']
+        predictions = gbtm.predict(test_ds)
+        mask = sample_submission.session_id.str.contains(f'q{t}')
+        n_predictions = (predictions > best_threshold).astype(int)
+        sample_submission.loc[mask,'correct'] = n_predictions.flatten()
+    
+    env.predict(sample_submission)
+This version of the API is not optimized and should not be used to estimate the runtime of your code on the hidden test set.
+! head submission.csv
+session_id,correct
+20090109393214576_q1,1
+20090109393214576_q2,1
+20090109393214576_q3,1
+20090109393214576_q4,1
+20090109393214576_q5,1
+20090109393214576_q6,1
+20090109393214576_q7,1
+20090109393214576_q8,1
+20090109393214576_q9,1
+ 
